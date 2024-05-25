@@ -9,6 +9,12 @@ private:
 public:
     Grzejnik() = delete;
     Grzejnik(float moc_nominalna, float moc_aktualna);
+    //destruktor
+    ~Grzejnik() = default;
+    //konstruktor kopiujący
+    Grzejnik(const Grzejnik& other) = delete;
+    //operator przypisania
+    Grzejnik& operator=(const Grzejnik& other) = delete;
 
     float GetMocNominalna() const {
         return moc_nominalna;
@@ -16,8 +22,9 @@ public:
     float GetMocAktualna() const{
         return moc_aktualna;
     };
+
     Grzejnik& SetMocAktualna(float tMoc);
-    float GetMoc() const {
+    float GetMoc() {
         return moc_nominalna * moc_aktualna;
     }
 };

@@ -34,41 +34,49 @@ void Symulacja::startuj() {
 
     float temp_zadana;
     if((temp_zadana = Utils::floatUżytkownika("Podaj temperaturę zadaną(domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną temperaturę zadaną: " << TEMP_ZADANA << "°C" << std::endl;
         temp_zadana = TEMP_ZADANA;
     }
 
     float moc_nominalna;
     if((moc_nominalna = Utils::floatUżytkownika("Podaj moc nominalną (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną moc nominalną: " << MOC_NOMINALNA << " W" << std::endl;
         moc_nominalna = MOC_NOMINALNA;
     }
 
     float szerokosc;
     if((szerokosc = Utils::floatUżytkownika("Podaj szerokość pomieszczenia (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną szerokość: " << SZEROKOSC << " m" << std::endl;
         szerokosc = SZEROKOSC;
     }
 
     float wysokosc;
     if(( wysokosc = Utils::floatUżytkownika("Podaj wysokość pomieszczenia (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną wysokość: " << WYSOKOSC << " m" << std::endl;
         wysokosc = WYSOKOSC;
     }
 
     float glebokosc;
     if((glebokosc = Utils::floatUżytkownika("Podaj głębokość pomieszczenia (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną głębokość: " << GLEBOKOSC << " m" << std::endl;
         glebokosc = GLEBOKOSC;
     }
 
     float kp;
-    if((kp = Utils::floatUżytkownika("Podaj kp (domyślna - ENTER): ", false, 0)) == 0){
+    if(c == 'P' && (kp = Utils::floatUżytkownika("Podaj kp (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną kp: " << KP << std::endl;
         kp = KP;
     }
 
     float ki;
-    if((ki = Utils::floatUżytkownika("Podaj ki (domyślna - ENTER): ", false, 0)) == 0){
+    if(c == 'P' && (ki = Utils::floatUżytkownika("Podaj ki (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną ki: " << KI << std::endl;
         ki = KI;
     }
 
     float kd;
-    if((kd = Utils::floatUżytkownika("Podaj kd (domyślna - ENTER): ", false, 0)) == 0){
+    if(c == 'P' && (kd = Utils::floatUżytkownika("Podaj kd (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną kd: " << KD << std::endl;
         kd = KD;
     }
 
@@ -80,13 +88,20 @@ void Symulacja::startuj() {
     } else {
         this->regulator = new RegulatorBB(temp_zadana, pomieszczenie, grzejnik);
     }
+
     float czas;
     if((czas = Utils::floatUżytkownika("Podaj czas symulacji (domyślna - ENTER): ", false , 0)) == 0){
+        std::cout << "Ustawiam domyślny czas symulacji: " << CZAS << " s" << std::endl;
         czas = CZAS;
     }
-    float probkowanie;
-    if((probkowanie = Utils::floatUżytkownika("Podaj czas próbkowania (domyślna - ENTER): ", false, 0)) == 0){
-        probkowanie = PROBKOWANIE;
+
+    float probkowanie = czas;
+    while(probkowanie >= czas) {
+        if ((probkowanie = Utils::floatUżytkownika("Podaj czas próbkowania (domyślna - ENTER): ", false, 0)) == 0) {
+            std::cout << "Ustawiam domyślne czas próbkowania: " << PROBKOWANIE << " s" << std::endl;
+            probkowanie = PROBKOWANIE;
+        }
+        if(probkowanie < czas) std::cout << "Czas próbkowania musi być mniejszy niż czas symulacji! \n";
     }
 
     przebieg(czas / probkowanie, probkowanie);
@@ -129,11 +144,13 @@ void Symulacja::przebieg(int probki, float dt) {
     std::vector<Wyniki> wyniki;
 
     for(int probka = 0; probka <= probki; probka++){
-        if(probka > 0)
-            iteracja(dt);
-
-        //if(probki / 2 == probka)
-          //  grzejnik->SetMocAktualna(.2f);
+        try {
+            if(probka > 0)
+                iteracja(dt);
+        } catch (const std::runtime_error& e) {
+            std::cerr << "Błąd: " << e.what() << std::endl;
+            return;  // Przerwij symulację, jeśli wystąpił błąd
+        }
 
         wyniki.emplace_back((float)probka*dt, grzejnik->GetMoc(), pomieszczenie->getTemperatura());
     }
@@ -144,8 +161,13 @@ void Symulacja::przebieg(int probki, float dt) {
 }
 
 void Symulacja::iteracja(float dt) {
-    if(regulator){
-        regulator->steruj(dt);
+    try {
+        if(regulator){
+            regulator->steruj(dt);
+        }
+    } catch (const std::invalid_argument& e) {
+        std::cerr << "Błąd: " << e.what() << std::endl;
+        return;  // Przerwij iterację, jeśli wystąpił błąd
     }
 
     pomieszczenie->aktualizuj(dt);

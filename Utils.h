@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <algorithm>
 
 class Utils {
 public:
@@ -49,7 +50,16 @@ public:
         return s;
     }
 
-    static float floatUżytkownika(std::string wiadomość, bool oczekiwany = true, int zakresStart = -1, int zakresEnd = -1){
+    static float floatUżytkownika(std::string wiadomość, bool oczekiwany = true, float zakresStart = -1.0f, float zakresEnd = -1.0f){
+        // Lambda expression do obsługi błędów
+        auto ObsługaBłędów = [&](const std::string msg = "Podana wartość nie jest liczbą") {
+            if (oczekiwany)
+                throw std::runtime_error(msg);
+            else
+                std::cout << msg << std::endl;
+            return floatUżytkownika(wiadomość, oczekiwany, zakresStart, zakresEnd);
+        };
+
         std::cout << wiadomość;
         float n;
         std::string s;
@@ -57,28 +67,29 @@ public:
 
         if(s.empty()) return 0;
 
+        std::replace(s.begin(), s.end(), ',', '.');
+
+        if(std::find_if(s.begin(), s.end(), [](char c){
+            return !std::isdigit(c) && c != '.' && c != '-';}) != s.end()){
+            return ObsługaBłędów();
+        }
+
         try {
             n = std::stof(s);
         } catch (std::exception& e){
-            if(oczekiwany)
-                throw std::exception();
-            else
-                return floatUżytkownika(wiadomość, oczekiwany, zakresStart, zakresEnd);
+            return ObsługaBłędów();
         }
 
         if (std::cin.fail()) {
             std::cin.clear();
             std::cin.ignore(256, '\n');
 
-            if(oczekiwany)
-                throw std::exception();
-            else
-                return floatUżytkownika(wiadomość, oczekiwany, zakresStart, zakresEnd);
+            return ObsługaBłędów();
         }
 
         std::cin.ignore();
 
-        if(zakresStart != -1 && zakresEnd != -1 && (n < zakresStart || n > zakresEnd)){
+        if((zakresStart != -1 && n < zakresStart) || (zakresEnd != -1 && n > zakresEnd)){
             std::cout << "Podana liczba nie mieści się w zakresie" << std::endl;
             return floatUżytkownika(wiadomość, oczekiwany, zakresStart, zakresEnd);
         }
