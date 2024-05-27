@@ -51,7 +51,7 @@ public:
     }
 
     static float floatUżytkownika(std::string wiadomość, bool oczekiwany = true, float zakresStart = -1.0f, float zakresEnd = -1.0f){
-        // Lambda expression do obsługi błędów
+        // Lambda expression do obsługi błędów (wsztko z zewnątrz jest dostepne dla lambdy)
         auto ObsługaBłędów = [&](const std::string msg = "Podana wartość nie jest liczbą") {
             if (oczekiwany)
                 throw std::runtime_error(msg);

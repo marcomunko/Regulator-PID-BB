@@ -9,7 +9,7 @@
 #include "Utils.h"
 
 #define PRECYZJA 4
-
+//defaltowe ustawienia przypisywane jeżeli damy ENTER
 #define TEMP_ZADANA 23.0f
 #define MOC_NOMINALNA 12000.0f
 #define SZEROKOSC 2.5f
@@ -20,8 +20,9 @@
 #define KD 0.1f
 #define CZAS 10.0f
 #define PROBKOWANIE 0.1f
+#define MOC_MAX 1.0f
 
-
+//menu wybieranie przez urzytkownika nastawów oraz pozostałych danych
 void Symulacja::startuj() {
     std::cout << "Wybierz regulator (PID - P, BB - B): ";
     char c;
@@ -33,6 +34,7 @@ void Symulacja::startuj() {
     std::cin.ignore();
 
     float temp_zadana;
+    //jeżeli temp_zadana = 0 to domyślna wartość
     if((temp_zadana = Utils::floatUżytkownika("Podaj temperaturę zadaną(domyślna - ENTER): ", false, 0)) == 0){
         std::cout << "Ustawiam domyślną temperaturę zadaną: " << TEMP_ZADANA << "°C" << std::endl;
         temp_zadana = TEMP_ZADANA;
@@ -42,6 +44,13 @@ void Symulacja::startuj() {
     if((moc_nominalna = Utils::floatUżytkownika("Podaj moc nominalną (domyślna - ENTER): ", false, 0)) == 0){
         std::cout << "Ustawiam domyślną moc nominalną: " << MOC_NOMINALNA << " W" << std::endl;
         moc_nominalna = MOC_NOMINALNA;
+    }
+
+    //przypisujemy wartości nawet jak PID ale nie używamy
+    float moc_max;
+    if(c == 'B' && (moc_max = Utils::floatUżytkownika("Podaj moc maksymalną z przedziału 0 - 1 (domyślna - ENTER): ", false, 0)) == 0){
+        std::cout << "Ustawiam domyślną moc maksymalną: " << MOC_MAX << std::endl;
+        moc_max = MOC_MAX;
     }
 
     float szerokosc;
@@ -61,7 +70,7 @@ void Symulacja::startuj() {
         std::cout << "Ustawiam domyślną głębokość: " << GLEBOKOSC << " m" << std::endl;
         glebokosc = GLEBOKOSC;
     }
-
+//przypisujemy wartości nawet jak BB ale nie używamy
     float kp;
     if(c == 'P' && (kp = Utils::floatUżytkownika("Podaj kp (domyślna - ENTER): ", false, 0)) == 0){
         std::cout << "Ustawiam domyślną kp: " << KP << std::endl;
@@ -79,14 +88,14 @@ void Symulacja::startuj() {
         std::cout << "Ustawiam domyślną kd: " << KD << std::endl;
         kd = KD;
     }
-
+    //utworzzenie obiekótów pomieszczenie, grzejnik (agregacja częściowa)
     this-> pomieszczenie = new Pomieszczenie(wysokosc, szerokosc, glebokosc);
     this-> grzejnik = new Grzejnik(moc_nominalna,0);
-
+    //wybór regulatora
     if(c == 'P'){
         this->regulator = new RegulatorPID(temp_zadana, kp, ki, kd, pomieszczenie, grzejnik);
     } else {
-        this->regulator = new RegulatorBB(temp_zadana, pomieszczenie, grzejnik);
+        this->regulator = new RegulatorBB(temp_zadana, pomieszczenie, grzejnik,moc_max);
     }
 
     float czas;
@@ -106,28 +115,20 @@ void Symulacja::startuj() {
 
     przebieg(czas / probkowanie, probkowanie);
 }
-
+//konstruktor = inicjalizacja wskaźników na nullptr (agregacja całkowita) i (cześciowa)
 Symulacja::Symulacja() {
     this->pomieszczenie = nullptr;
     this->grzejnik = nullptr;
     this->regulator = nullptr;
 }
 
+//destruktor = usówanie pomieszczenia i grzejnika (agregacja całkowita)
 Symulacja::~Symulacja(){
     delete pomieszczenie;
     delete grzejnik;
 }
 
-template<typename T>
-std::string vec_to_str(std::vector<T> const &v, std::string const &sep = " "){
-    std::stringstream wynik;
-    for(auto &i : v){
-        wynik << i << sep;
-    }
-
-    return wynik.str();
-}
-
+//struktura wyników, które zostaną wypisane do pliku oraz do konsoli
 struct Wyniki{
     const float czas;
     const float moc;
@@ -135,15 +136,31 @@ struct Wyniki{
 
     Wyniki(float czas, float moc, float temp) : czas(czas), moc(moc), temp(temp){};
 
+    //przeciążony operator << wypisujący wyniki do konsoli
     friend std::ostream& operator<<(std::ostream& o, const Wyniki& w){
         return o << std::fixed << std::setprecision(PRECYZJA) << w.czas << ';' << w.temp << ';' << w.moc;
     }
 };
 
+//funkcja zamieniająca wektor na string
+template<typename T>
+//tworzymy strumień wyniki który jest ciągiem znaków z wektora
+std::string vec_to_str(std::vector<T> const &v, std::string const &sep = " "){
+    std::stringstream wynik;
+    //dla każdego i w wektorze v dodajemy i do wyniki z separatorem
+    for(auto &i : v){
+        wynik << i << sep;
+    }
+
+    return wynik.str();
+}
+
+
 void Symulacja::przebieg(int probki, float dt) {
     std::vector<Wyniki> wyniki;
 
     for(int probka = 0; probka <= probki; probka++){
+        //zabezpieczenie przed błędem
         try {
             if(probka > 0)
                 iteracja(dt);
@@ -154,25 +171,29 @@ void Symulacja::przebieg(int probki, float dt) {
 
         wyniki.emplace_back((float)probka*dt, grzejnik->GetMoc(), pomieszczenie->getTemperatura());
     }
-
+    //zamiana wyników na string
     auto w = vec_to_str(wyniki, "\n");
+    //zamiana kropek na przecinki
     std::replace(w.begin(), w.end(), '.', ',');
     zapis(w.c_str());
 }
 
+//iteracja symulacji (jeden czas dt zmiana temperatury pomieszczenia)
 void Symulacja::iteracja(float dt) {
+    //zabezpieczenie przed błędem baraku inicjalizacji regulatora
     try {
         if(regulator){
             regulator->steruj(dt);
         }
     } catch (const std::invalid_argument& e) {
-        std::cerr << "Błąd: " << e.what() << std::endl;
+        std::cerr << "Błąd inicjalizacji regulatora " << e.what() << std::endl;
         return;  // Przerwij iterację, jeśli wystąpił błąd
     }
-
+    //aktualizuj = metoda pomieszczenia
     pomieszczenie->aktualizuj(dt);
 }
 
+//zapis wyników do pliku
 void Symulacja::zapis(const char *str){
     std::ofstream plik;
     plik.open("wyniki.csv", std::ios::out);

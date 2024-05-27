@@ -8,12 +8,16 @@
 
 class Symulacja {
 private:
+    //agregacja całkowita
     Pomieszczenie* pomieszczenie;
     Grzejnik* grzejnik;
     Regulator* regulator;
 public:
+    //konstruktor
     Symulacja();
+    //destruktor
     ~Symulacja();
+    //konstruktor kopiujący
     Symulacja& operator=(const Symulacja& other)= delete;
 
     void iteracja(float dt);
